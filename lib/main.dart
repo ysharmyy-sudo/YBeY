@@ -5,150 +5,42 @@ import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_tts/flutter_tts.dart';
-import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'api_config.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const YBEYAPP());
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => RegistrationData(languageCode: 'EN'),
+        ),
+      ],
+      child: const YBEYApp(),
+    ),
+  );
 }
 
-class MyApp extends StatelessWidget {
-  const YBEYAPP({super.key});
+class YBEYApp extends StatelessWidget {
+  const YBEYApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: Center(child: Text("Firebase Connected ✅")),
-      ),
+      title: 'YBEY App',
+      home: const YBEYHomePage(),
     );
   }
 }
 
 
-void main() {
-  runApp(const YBEYApp());
-}
-
-class WelcomeAudioController {
-  WelcomeAudioController._() {
-    _player.onPlayerComplete.listen((_) {
-      _markCompleted();
-    });
-  }
-
-  static final WelcomeAudioController instance = WelcomeAudioController._();
-
-  final AudioPlayer _player = AudioPlayer();
-  FlutterTts? _tts;
-  bool started = false;
-  bool completed = false;
-  bool blocked = false;
-  String? lastError;
-  String? lastAssetTried;
-  Completer<void>? _completion;
-
-  static const List<String> _assetCandidates = <String>[
-    'assets/audio/welcome.mp3',
-    'assets/audio/welcome.mpeg',
-    'audio/welcome.mp3',
-    'audio/welcome.mpeg',
-  ];
-
-  Future<void> start({bool userInitiated = false}) async {
-    if (completed) return;
-    if (started && !blocked) return;
-
-    blocked = false;
-    lastError = null;
-    lastAssetTried = null;
-    started = true;
-    completed = false;
-    _completion ??= Completer<void>();
-
-    for (final String assetPath in _assetCandidates) {
-      try {
-        lastAssetTried = assetPath;
-        await _player.setVolume(1.0);
-        await _player.play(AssetSource(assetPath));
-        await _player.setVolume(1.0);
-        return;
-      } catch (e) {
-        lastError = e.toString();
-        if (kIsWeb && !userInitiated) {
-          started = false;
-          completed = false;
-          blocked = true;
-          return;
-        }
-      }
-    }
-
-    _tts ??= FlutterTts();
-    await _tts?.setSpeechRate(0.45);
-    await _tts?.setVolume(1.0);
-    _tts?.setErrorHandler((dynamic _) async {
-      _markCompleted();
-    });
-    _tts?.setCompletionHandler(() async {
-      _markCompleted();
-    });
-
-    try {
-      await _tts?.speak('Welcome to YBEY Web Site');
-    } catch (e) {
-      lastError = e.toString();
-      _markCompleted();
-    }
-  }
-
-  void handleUserInteraction() {
-    if (!blocked || completed) return;
-    unawaited(start(userInitiated: true));
-  }
-
-  Future<void> stop() async {
-    try {
-      await _player.stop();
-    } catch (_) {}
-    try {
-      await _tts?.stop();
-    } catch (_) {}
-  }
-
-  void _markCompleted() {
-    if (completed) return;
-    completed = true;
-    blocked = false;
-    started = true;
-    _completion?.complete();
-    _completion = null;
-  }
-}
-
-class ApiConfig {
-  static const String _envBaseUrl =
-      String.fromEnvironment('API_BASE_URL', defaultValue: '');
-
-  static String get baseUrl {
-    final String fromEnv = _envBaseUrl.trim();
-    if (fromEnv.isNotEmpty) {
-      return fromEnv.endsWith('/') ? fromEnv.substring(0, fromEnv.length - 1) : fromEnv;
-    }
-    if (kIsWeb) {
-      return 'http://127.0.0.1:8000';
-    }
-    return 'http://10.0.2.2:8000';
-  }
-}
 
 class RegistrationData extends ChangeNotifier {
   String _name = '';
@@ -185,7 +77,8 @@ class RegistrationData extends ChangeNotifier {
       'emailInvalidError': 'சரியான மின்னஞ்சல் முகவரியை உள்ளிடவும்',
       'passwordEmptyError': 'கடவுச்சொல் காலியாக இருக்கக்கூடாது',
       'passwordLengthError': 'கடவுச்சொல் குறைந்தபட்சம் 6 எழுத்துகள் இருக்க வேண்டும்',
-      'confirmPasswordEmptyError': 'கடவுச்சொல்லை உறுதிப்படுத்தவும் காலியாக இருக்கக்கூடாது',
+      'confirmPasswordEmptyError':
+          'கடவுச்சொல்லை உறுதிப்படுத்தவும் காலியாக இருக்கக்கூடாது',
       'passwordsMismatchError': 'கடவுச்சொற்கள் பொருந்தவில்லை',
     },
     'TE': {
@@ -209,7 +102,8 @@ class RegistrationData extends ChangeNotifier {
       'emailInvalidError': 'സാധുവായ ഒരു ഇമെയിൽ വിലാസം നൽകുക',
       'passwordEmptyError': 'പാസ്‌വേഡ് ശൂന്യമായിരിക്കാൻ പാടില്ല',
       'passwordLengthError': 'പാസ്‌വേഡിന് കുറഞ്ഞത് 6 അക്ഷരങ്ങൾ ഉണ്ടായിരിക്കണം',
-      'confirmPasswordEmptyError': 'പാസ്‌വേഡ് സ്ഥിരീകരിക്കുക ശൂന്യമായിരിക്കാൻ പാടില്ല',
+      'confirmPasswordEmptyError':
+          'പാസ്‌വേഡ് സ്ഥിരീകരിക്കുക ശൂന്യമായിരിക്കാൻ പാടില്ല',
       'passwordsMismatchError': 'പാസ്‌വേഡുകൾ പൊരുത്തപ്പെടുന്നില്ല',
     },
   };
@@ -232,8 +126,7 @@ class RegistrationData extends ChangeNotifier {
     return _errorTranslations[_languageCode]![_passwordErrorKey!];
   }
 
-  RegistrationData({String languageCode = 'EN'})
-      : _languageCode = languageCode {
+  RegistrationData({String languageCode = 'EN'}) : _languageCode = languageCode {
     _validateForm();
   }
 
@@ -383,18 +276,12 @@ class _SplashScreenState extends State<SplashScreen>
   late final Animation<double> _scaleAnimation;
   bool _navigated = false;
   bool _navigationScheduled = false;
-  late final DateTime _splashStartedAt;
-  bool _soundDialogShown = false;
 
-  static const String _splashImageUrl =
-      "https://www.gstatic.com/flutter-onestack-prototype/genui/example_1.jpg";
   static const Duration _minSplashDuration = Duration(seconds: 3);
-  static const Duration _maxSplashDuration = Duration(seconds: 10);
 
   @override
   void initState() {
     super.initState();
-    _splashStartedAt = DateTime.now();
     _splashController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1800),
@@ -404,19 +291,7 @@ class _SplashScreenState extends State<SplashScreen>
       CurvedAnimation(parent: _splashController, curve: Curves.easeInOut),
     );
 
-    unawaited(WelcomeAudioController.instance.start());
-
-    Future.delayed(_minSplashDuration, _maybeProceedToApp);
-    Future.delayed(_maxSplashDuration, _proceedToApp);
-  }
-
-  void _maybeProceedToApp() {
-    if (!mounted || _navigated) return;
-    final Duration elapsed = DateTime.now().difference(_splashStartedAt);
-    if (elapsed < _minSplashDuration) return;
-    final WelcomeAudioController audio = WelcomeAudioController.instance;
-    if (audio.started && !audio.completed) return;
-    _proceedToApp();
+    Future.delayed(_minSplashDuration, _proceedToApp);
   }
 
   Future<void> _proceedToApp() async {
@@ -438,159 +313,86 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    final WelcomeAudioController audio = WelcomeAudioController.instance;
-    if (kIsWeb && audio.blocked && !_soundDialogShown) {
-      _soundDialogShown = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        showDialog<void>(
-          context: context,
-          barrierDismissible: true,
-          builder: (BuildContext dialogContext) {
-            return AlertDialog(
-              title: const Text('Enable sound'),
-              content: const Text(
-                'Browser autoplay is blocked. Tap Enable to play the welcome audio.',
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                  },
-                  child: const Text('Not now'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    unawaited(audio.start(userInitiated: true));
-                    Navigator.of(dialogContext).pop();
-                    if (mounted) {
-                      setState(() {});
-                    }
-                  },
-                  child: const Text('Enable'),
-                ),
-              ],
-            );
-          },
-        );
-      });
-    }
     return Scaffold(
-      body: Listener(
-        behavior: HitTestBehavior.translucent,
-        onPointerDown: (_) => setState(() => audio.handleUserInteraction()),
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: <Color>[
-                Color(0xFF11526D),
-                Color(0xFF3B9E59),
-              ],
-            ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: <Color>[
+              Color(0xFF11526D),
+              Color(0xFF3B9E59),
+            ],
           ),
-          child: Center(
-            child: ScaleTransition(
-              scale: _scaleAnimation,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Tooltip(
-                    message: 'Loading',
-                    child: Container(
-                      width: 160,
-                      height: 160,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFF2F8F6B),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.25),
-                          width: 3,
-                        ),
-                        boxShadow: <BoxShadow>[
-                          BoxShadow(
-                            color: const Color.fromARGB(255, 9, 125, 174)
-                                .withOpacity(0.25),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
+        ),
+        child: Center(
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Tooltip(
+                  message: 'Loading',
+                  child: Container(
+                    width: 160,
+                    height: 160,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF2F8F6B),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.25),
+                        width: 3,
                       ),
-                      child: ClipOval(
-                        child: Image.asset(
-                          'assets/images/logo.png',
-                          width: 140,
-                          height: 140,
-                          fit: BoxFit.cover,
-                          errorBuilder: (BuildContext context, Object error,
-                              StackTrace? s) {
-                            return Container(
-                              height: 120,
-                              width: 120,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.grey[300],
-                              ),
-                              child: const Icon(
-                                Icons.image_not_supported,
-                                size: 50,
-                                color: Colors.grey,
-                              ),
-                            );
-                          },
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(
+                          color: const Color.fromARGB(255, 9, 125, 174)
+                              .withOpacity(0.25),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
                         ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 140,
+                        height: 140,
+                        fit: BoxFit.cover,
+                        errorBuilder: (BuildContext context, Object error,
+                            StackTrace? s) {
+                          return Container(
+                            height: 120,
+                            width: 120,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.grey[300],
+                            ),
+                            child: const Icon(
+                              Icons.image_not_supported,
+                              size: 50,
+                              color: Colors.grey,
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Welcome to YBEY',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Welcome to YBEY',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
-                  if (audio.lastError != null && !audio.blocked) ...<Widget>[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Sound error. Try MP3 file. (${audio.lastAssetTried ?? 'unknown'})',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-class YBEYApp extends StatelessWidget {
-  const YBEYApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'YBEY',
-      debugShowCheckedModeBanner: false,
-      builder: (BuildContext context, Widget? child) {
-        return Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerDown: (_) => WelcomeAudioController.instance.handleUserInteraction(),
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
-      home: const SplashScreen(),
     );
   }
 }
@@ -652,7 +454,6 @@ class CustomTextFormField extends StatelessWidget {
   }
 }
 
-
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({super.key});
 
@@ -677,10 +478,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Get the current language from RegistrationData
-    final registrationData = Provider.of<RegistrationData>(context, listen: false);
-    
-    // Get translations based on the language code
+    final registrationData =
+        Provider.of<RegistrationData>(context, listen: false);
     final currentTranslations = _getTranslations(registrationData.languageCode);
 
     return Scaffold(
@@ -764,9 +563,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       maxLines: 4,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        labelText: currentTranslations['problemDescriptionLabel'] ?? 'Problem Description (Optional)',
+                        labelText: currentTranslations['problemDescriptionLabel'] ??
+                            'Problem Description (Optional)',
                         labelStyle: const TextStyle(color: Colors.white70),
-                        hintText: currentTranslations['problemDescriptionHint'] ?? 'Describe any issues...',
+                        hintText: currentTranslations['problemDescriptionHint'] ??
+                            'Describe any issues...',
                         hintStyle: const TextStyle(color: Colors.white54),
                         filled: true,
                         fillColor: Colors.white.withOpacity(0.1),
@@ -830,7 +631,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
       ),
     );
   }
-
   // Helper method to get translations
   Map<String, String> _getTranslations(String languageCode) {
     final allTranslations = {
@@ -911,7 +711,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
     return allTranslations[languageCode] ?? allTranslations['EN']!;
   }
 }
-
 class YBEYHomePage extends StatefulWidget {
   const YBEYHomePage({super.key});
 
@@ -928,13 +727,7 @@ class _YBEYHomePageState extends State<YBEYHomePage>
   late final Animation<Color?> _bgColor1;
   late final Animation<Color?> _bgColor2;
 
-  bool _contentVisible = true; // Content visible by default
-
-  String _selectedLanguage = 'EN'; // Default to English
-
-  static const String _placeholderImageUrl =
-      "https://www.gstatic.com/flutter-onestack-prototype/genui/example_1.jpg";
-
+  String _selectedLanguage = 'EN';
   // Define translation maps for all languages
   final Map<String, String> _enStrings = {
     'appTitle': 'YBEY',
@@ -1985,6 +1778,55 @@ class _SocialMediaLink extends StatelessWidget {
             const Icon(Icons.open_in_new, color: Colors.white70, size: 16),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class StatisticsScreen extends StatefulWidget {
+  const StatisticsScreen({super.key});
+
+  @override
+  State<StatisticsScreen> createState() => _StatisticsScreenState();
+}
+
+class _StatisticsScreenState extends State<StatisticsScreen> {
+  int visitors = 0;
+  int submissions = 0;
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadStatistics();
+  }
+
+  Future<void> loadStatistics() async {
+    // API call later
+    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
+    if (mounted) {
+      setState(() {
+        visitors = 123;
+        submissions = 45;
+        loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Statistics')),
+      body: Center(
+        child: loading
+            ? const CircularProgressIndicator()
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Visitors: $visitors'),
+                  Text('Submissions: $submissions'),
+                ],
+              ),
       ),
     );
   }
