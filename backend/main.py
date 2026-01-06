@@ -4,12 +4,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 import hashlib
 
-# Absolute imports
 import models
 import schemas
 from database import SessionLocal, engine, Base
 
+# -----------------------------
 # Create DB tables
+# -----------------------------
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -17,7 +18,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS (Flutter / Web)
+# -----------------------------
+# CORS
+# -----------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,7 +29,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# DB dependency
+# -----------------------------
+# DB Dependency
+# -----------------------------
 def get_db():
     db = SessionLocal()
     try:
@@ -34,24 +39,40 @@ def get_db():
     finally:
         db.close()
 
-# Password hashing
+# -----------------------------
+# Password Hash
+# -----------------------------
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
+# -----------------------------
 # Root
+# -----------------------------
 @app.get("/")
 def root():
     return {"message": "YBEY backend running successfully 🚀"}
 
-# -------------------------------
-# REGISTER USER (Flutter form)
-# -------------------------------
+# =====================================================
+# 1️⃣ VISITOR TRACKING
+# =====================================================
+@app.post("/api/visit")
+def track_visitor(request: Request, db: Session = Depends(get_db)):
+    visitor = models.Visitor(
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent", "")
+    )
+    db.add(visitor)
+    db.commit()
+    return {"status": "visitor tracked"}
+
+# =====================================================
+# 2️⃣ USER REGISTRATION
+# =====================================================
 @app.post("/api/register", response_model=schemas.UserResponse)
 def register_user(
     payload: schemas.UserRegistration,
     db: Session = Depends(get_db)
 ):
-    # Check email exists
     existing_user = db.query(models.User).filter(
         models.User.email == payload.email
     ).first()
@@ -76,33 +97,28 @@ def register_user(
 
     return user
 
-# -------------------------------
-# TRACK VISITOR (Home page load)
-# -------------------------------
-@app.post("/api/track-visitor")
-def track_visitor(
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    visitor = models.Visitor(
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent")
-    )
-
-    db.add(visitor)
-    db.commit()
-
-    return {"status": "visitor tracked"}
-
-# -------------------------------
-# STATISTICS (Backend only)
-# -------------------------------
+# =====================================================
+# 3️⃣ STATISTICS (COUNTERS)
+# =====================================================
 @app.get("/api/statistics", response_model=schemas.StatisticsResponse)
 def get_statistics(db: Session = Depends(get_db)):
-    total_visitors = db.query(func.count(models.Visitor.id)).scalar() or 0
-    total_registrations = db.query(func.count(models.User.id)).scalar() or 0
-
     return {
-        "total_visitors": total_visitors,
-        "total_registrations": total_registrations
+        "total_visitors": db.query(func.count(models.Visitor.id)).scalar() or 0,
+        "total_registrations": db.query(func.count(models.User.id)).scalar() or 0
     }
+
+# =====================================================
+# 4️⃣ ADMIN: SEE ALL USERS (IMPORTANT 🔥)
+# =====================================================
+@app.get("/api/admin/users")
+def admin_get_users(db: Session = Depends(get_db)):
+    users = db.query(models.User).all()
+    return users
+
+# =====================================================
+# 5️⃣ ADMIN: SEE ALL VISITORS
+# =====================================================
+@app.get("/api/admin/visitors")
+def admin_get_visitors(db: Session = Depends(get_db)):
+    visitors = db.query(models.Visitor).all()
+    return visitors
