@@ -1,25 +1,42 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from pathlib import Path
+import os
 
-# Base directory (backend folder)
-BASE_DIR = Path(__file__).resolve().parent
+# =====================================================
+# DATABASE URL
+# =====================================================
+# Render automatically DATABASE_URL provide karta hai
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# SQLite DB path
-DB_PATH = BASE_DIR / "ybey.db"
+if DATABASE_URL:
+    # PostgreSQL (Production - Render)
+    SQLALCHEMY_DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
+    connect_args = {}
+else:
+    # SQLite (Local Development only)
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./ybey.db"
+    connect_args = {"check_same_thread": False}
 
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
-
+# =====================================================
+# ENGINE
+# =====================================================
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False}
+    connect_args=connect_args,
+    pool_pre_ping=True
 )
 
+# =====================================================
+# SESSION
+# =====================================================
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine
 )
 
+# =====================================================
+# BASE
+# =====================================================
 Base = declarative_base()
